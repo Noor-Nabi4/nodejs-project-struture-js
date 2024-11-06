@@ -1,12 +1,13 @@
 const Constants = {
-  STATUS: {
-    APPROVED: "APPROVED",
-    REJECTED: "REJECTED",
-    PENDING: "PENDING",
+  MAX_API_RATE_LIMIT: 10,
+  USER_ROLES: {
+    ADMIN: "ADMIN",
+    USER: "USER",
   },
-  JWT:{
+  JWT: {
     SECRET_KEY: "your-secret-key",
     EXPIRATION_TIME: "1h", // 1 hour
-  }
+    COOKIE_EXPIRE: 1,
+  },
 };
 export default Constants;

@@ -9,16 +9,28 @@ import {
   changePassword,
 } from "../controllers/authController.js";
 import { isAuthenticatedUser, authorizeRole } from "../middlewares/auth.js";
+import {
+  validateSignup,
+  validateSignin,
+  validateForgotPassword,
+  validateResetPassword,
+  validateChangePassword,
+} from "../validators/authValidator.js";
 
 const router = express.Router();
 
 router
-  .post("/signup", createUser)
-  .get("/check", isAuthenticatedUser, checkAuth)
-  .post("/signin", signin)
+  .post("/signup", validateSignup, createUser)
+  .post("/signin", validateSignin, signin)
   .get("/signout", signout)
-  .post("/password/forgot", forgotPassword)
-  .put("/password/reset/:token", resetPassword)
-  .patch("/password/change", isAuthenticatedUser, changePassword);
+  .get("/check", isAuthenticatedUser, checkAuth)
+  .post("/password/forgot", validateForgotPassword, forgotPassword)
+  .put("/password/reset/:token", validateResetPassword, resetPassword)
+  .patch(
+    "/password/change",
+    isAuthenticatedUser,
+    validateChangePassword,
+    changePassword
+  );
 
 export default router;

@@ -1,7 +1,8 @@
-import User from "../models/userModel.js";
+import { prisma } from "../config/db.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import catchAsyncErrors from "./catchAsyncErrors.js";
 import jwt from "jsonwebtoken";
+import { env } from "../config/env.js";
 
 export const isAuthenticatedUser = catchAsyncErrors(async (req, res, next) => {
   const { authToken } = req.cookies;
@@ -9,12 +10,33 @@ export const isAuthenticatedUser = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Please login to access this resource.", 401));
   }
 
-  const decodedData = jwt.verify(authToken, process.env.JWT_SECRET);
-  const userFound = await User.findById(decodedData.id);
-  if (!userFound) {
+  const decodedData = jwt.verify(authToken, env.JWT_SECRET);
+  
+  const user = await prisma.user.findUnique({
+    where: { id: decodedData.id },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+      email: true,
+      phoneNumber: true,
+      isActive: true,
+      role: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!user) {
     return next(new ErrorHandler("Please login to access this resource.", 401));
   }
-  req.user = userFound;
+
+  if (!user.isActive) {
+    return next(new ErrorHandler("Your account has been deactivated.", 403));
+  }
+
+  req.user = user;
 
   next();
 });

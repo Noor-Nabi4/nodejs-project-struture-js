@@ -42,4 +42,3 @@ const sendToken = (user, statusCode, res) => {
 };
 
 export default sendToken;
-export { generateJWTToken };

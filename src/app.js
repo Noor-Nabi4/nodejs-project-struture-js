@@ -1,15 +1,14 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import cors from "cors";
 import { env } from "./config/env.js";
 import errorMiddleware from "./middlewares/defaultError.js";
 import morganMiddleware from "./middlewares/morganLogger.js";
+import rateLimiter from "./middlewares/rateLimiter.js";
 
 // Route Imports
-import authRoutes from "./routes/authRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
+import routes from "./routes/index.js";
 
 const app = express();
 
@@ -35,18 +34,7 @@ app.use(cookieParser());
 app.use(morganMiddleware);
 
 // Rate Limiting
-const limiter = rateLimit({
-  windowMs: env.RATE_LIMIT_WINDOW_MS,
-  max: env.MAX_API_RATE_LIMIT,
-  message: {
-    success: false,
-    message: "Too many requests from this IP, please try again later.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use("/api/v1", limiter);
+app.use("/api/v1", rateLimiter);
 
 // Health Check Route
 app.get("/health", (req, res) => {
@@ -58,10 +46,7 @@ app.get("/health", (req, res) => {
 });
 
 // API Routes
-const BASE_ROUTE = "/api/v1";
-
-app.use(`${BASE_ROUTE}/auth`, authRoutes);
-app.use(`${BASE_ROUTE}/user`, userRoutes);
+app.use("/api",routes);
 
 // 404 Handler
 app.use((req, res) => {

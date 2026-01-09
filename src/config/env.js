@@ -5,7 +5,7 @@
 import dotenv from "dotenv";
 
 // Load environment variables
-dotenv.config();
+dotenv.config({debug:false});
 
 /**
  * Validate required environment variables

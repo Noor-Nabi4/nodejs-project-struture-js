@@ -1,32 +1,47 @@
 import express from "express";
-import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import helmet from "helmet"; // Security middleware
-import rateLimit from "express-rate-limit"; // Rate limiting middleware
-import morgan from "morgan";
-import path from "path";
-import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import mongoSanitize from "express-mongo-sanitize";
+import corsMiddleware from "./config/cors.js";
+import morganMiddleware from "./config/morgan.js";
+import swaggerUi from "swagger-ui-express";
+import config from "./config/index.js";
+import { swaggerSpec } from "./config/swagger.js";
 import errorMiddleware from "./middlewares/defaultError.js";
+import routes from "./routes/index.js";
+import { HTTP_STATUS } from "./config/constants.js";
 
 const app = express();
 
-app.use(express.json());
-app.use(helmet()); // Use helmet for security headers
-app.use(bodyParser.json());
+app.use(helmet());
+app.use(morganMiddleware);
+app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
-app.use(cors());
+app.use(corsMiddleware);
+app.use(mongoSanitize());
 
-// Route Imports
-import authRoutes from "./routes/authRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
+const limiter = rateLimit({
+  max: config.rateLimit.max,
+  windowMs: config.rateLimit.windowMs,
+  message: { success: false, message: "Too many requests. Try again later." },
+});
+app.use("/api/", limiter);
+
+app.get("/health", (req, res) => {
+  res.status(HTTP_STATUS.OK).json({ success: true, message: "OK" });
+});
 
 const BASE_ROUTE = "/api/v1";
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(BASE_ROUTE, routes);
 
-app.use(`${BASE_ROUTE}/auth`, authRoutes);
-app.use(`${BASE_ROUTE}/user`, userRoutes);
+app.use((req, res) => {
+  res
+    .status(HTTP_STATUS.NOT_FOUND)
+    .json({ success: false, message: "Route not found" });
+});
 
-
-// Error Middleware
 app.use(errorMiddleware);
 
 export default app;

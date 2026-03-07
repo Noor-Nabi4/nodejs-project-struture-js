@@ -1,147 +1,88 @@
 import catchAsyncErrors from "../middlewares/catchAsyncErrors.js";
-import User from "../models/userModel.js";
+import * as authService from "../services/authService.js";
+import {
+  sendEmail,
+  getPasswordResetTemplatePath,
+} from "../services/emailService.js";
+import { hashResetToken } from "../utils/token.js";
+import sendToken from "../utils/jwtToken.js";
+import { success } from "../utils/response.js";
 import ErrorHandler from "../utils/errorHandler.js";
-import sendToken from "../utils/jWTToken.js";
-import sendEmail from "../utils/sendEmail.js";
-import crypto from "crypto";
+import config from "../config/index.js";
+import { HTTP_STATUS, COOKIE_NAMES } from "../config/constants.js";
 
-export const checkAuth = catchAsyncErrors(async (req, res, next) => {
-  if (req.user) {
-    res.json(req.user);
-  } else {
-    res.sendStatus(401);
-  }
+export const me = catchAsyncErrors(async (req, res) => {
+  return success(res, HTTP_STATUS.OK, "Success", req.user);
 });
 
 export const createUser = catchAsyncErrors(async (req, res, next) => {
-  const user = new User(req.body);
-  const saved = await user.save();
-
-  res.json({ success: true, message: "User Created", data: saved });
+  const user = await authService.createUser(req.body);
+  return success(res, HTTP_STATUS.CREATED, "User created successfully", user);
 });
 
 export const signin = catchAsyncErrors(async (req, res, next) => {
-  const { password, email } = req.body;
-  if (!email || !password) {
-    return next(
-      new ErrorHandler("Please enter email or username and password", 400)
-    );
-  }
-  const user = await User.findOne({
-    $or: [{ email: email }, { username: email }],
-  }).select("+password");
-  if (!user) {
-    return next(new ErrorHandler("Invalid Credentials", 401));
-  }
-  const isPasswordMatched = await user.comparePassword(password);
-  if (!isPasswordMatched) {
-    return next(new ErrorHandler("Invalid Credentials", 401));
-  }
-  sendToken(user, 200, res);
+  const { email, password } = req.body;
+  const user = await authService.validateCredentials(email, password);
+  sendToken(user, HTTP_STATUS.OK, res);
 });
 
-export const signout = catchAsyncErrors(async (req, res, next) => {
-  res.cookie("token", null, {
-    expires: new Date(Date.now()),
+export const signout = catchAsyncErrors(async (req, res) => {
+  res.cookie(COOKIE_NAMES.AUTH_TOKEN, "", {
+    expires: new Date(0),
     httpOnly: true,
+    secure: config.isProduction,
+    sameSite: "lax",
   });
-  res.json({
-    success: true,
-    message: "Signed Out Successfully",
-  });
+  return success(res, HTTP_STATUS.OK, "Signed out successfully");
 });
 
 export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
-  const captchaResult = await verifyCaptcha(req.body.recaptchaToken);
-  if (!captchaResult) {
-    return next(new ErrorHandler("Something went wrong Please try again", 401));
-  }
-  const user = await User.findOne({ email: req.body.email });
+  const user = await authService.findUserByEmail(req.body.email);
   if (!user) {
-    return next(new ErrorHandler("User not found", 404));
+    return success(
+      res,
+      HTTP_STATUS.OK,
+      "If the email exists, a reset link has been sent."
+    );
   }
   const resetToken = user.setResetPasswordToken();
-  const resetPasswordUrl = `${req.protocol}://${req.get(
-    "host"
-  )}/auth/password/reset/${resetToken}`;
   await user.save({ validateBeforeSave: false });
+  const resetPasswordUrl = `${req.protocol}://${req.get("host")}/api/v1/auth/password/reset/${resetToken}`;
   try {
     await sendEmail({
       email: user.email,
-      subject: "Forgot Password",
-      message: resetPasswordUrl,
+      subject: "Password reset",
+      templatePath: getPasswordResetTemplatePath(),
+      templateData: { resetUrl: resetPasswordUrl },
     });
-    res.json({
-      success: true,
-      message: "SUCCESS",
-    });
-  } catch (error) {
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
-    await user.save({ validateBeforeSave: false });
-    return next(new ErrorHandler(error.message, 500));
+  } catch (err) {
+    await authService.clearResetToken(user);
+    throw err;
   }
+  return success(
+    res,
+    HTTP_STATUS.OK,
+    "If the email exists, a reset link has been sent."
+  );
 });
 
 export const resetPassword = catchAsyncErrors(async (req, res, next) => {
-  const captchaResult = await verifyCaptcha(req.body.recaptchaToken);
-  if (!captchaResult) {
-    return next(new ErrorHandler("Something went wrong Please try again", 401));
-  }
-  const { password, confirmPassword } = req.body;
-  const resetPasswordToken = crypto
-    .createHash("sha256")
-    .update(req.params.token)
-    .digest("hex");
-  const user = await User.findOne({
-    resetPasswordToken,
-    resetPasswordExpire: { $gt: Date.now() },
-  });
+  const hashedToken = hashResetToken(req.params.token);
+  const user = await authService.findUserByResetToken(hashedToken);
   if (!user) {
     return next(
-      new ErrorHandler("Reset password token is invalid or has expired", 400)
+      new ErrorHandler(
+        "Reset token is invalid or has expired",
+        HTTP_STATUS.BAD_REQUEST
+      )
     );
   }
-  if (password !== confirmPassword) {
-    return next(
-      new ErrorHandler("Password does not match with confirm password", 400)
-    );
-  }
-  user.password = password;
-  user.resetPasswordToken = undefined;
-  user.resetPasswordExpire = undefined;
-  await user.save();
-  res.json({
-    success: true,
-    message: "Reset Password Successfully",
-  });
+  await authService.setUserPassword(user, req.body.password);
+  return success(res, HTTP_STATUS.OK, "Password reset successfully");
 });
 
 export const changePassword = catchAsyncErrors(async (req, res, next) => {
-  const { id } = req?.user || {};
-  const { oldPassword, password } = req.body || {};
-
-  const user = await User.findById(id).select("+password");
-
-  if (!user) {
-    return next(
-      new ErrorHandler("User not found. Please login and try again.", 400)
-    );
-  }
-
-  const isMatched = await user.comparePassword(oldPassword);
-
-  if (!isMatched) {
-    return next(
-      new ErrorHandler("Please enter correct old password and try again.", 400)
-    );
-  }
-
-  user.password = password;
-  await user.save();
-
-  res.json({
-    success: true,
-    message: "Password Changed Successfully",
-  });
+  const { oldPassword, password } = req.body;
+  await authService.changePasswordForUser(req.user.id, oldPassword, password);
+  return success(res, HTTP_STATUS.OK, "Password changed successfully");
 });

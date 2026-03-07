@@ -1,28 +1,50 @@
 {
-  "name": "nodejs-project-struture",
+  "name": "inventory-management-api",
   "version": "1.0.0",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/index.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Production-ready Inventory Management API",
   "dependencies": {
+    "chalk": "^5.3.0",
     "bcrypt": "^5.1.1",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^11.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",
     "express": "^4.21.1",
+    "express-mongo-sanitize": "^2.2.0",
     "express-rate-limit": "^7.4.1",
+    "joi": "^17.13.3",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.0",
     "morgan": "^1.10.0",
-    "nodemailer": "^6.9.16"
+    "nodemailer": "^6.9.16",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.0"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "jest": "^29.7.0",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.4.2",
+    "supertest": "^7.0.0"
+  },
+  "lint-staged": {
+    "*.{js,json,md}": [
+      "prettier --write"
+    ]
   }
 }

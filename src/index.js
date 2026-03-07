@@ -1,39 +1,63 @@
 import dotenv from "dotenv";
-import app from "./app.js";
-import connectDB from "./config/db.js";
-
-// Handling uncaught exception
-process.on("uncaughtException", (err) => {
-  console.error(`Uncaught Exception: ${err.message}`);
-  console.log("Shutting down server due to Uncaught Exception...");
-  process.exit(1); // Exit process with failure code
-});
-
-// Configuring dotenv
 dotenv.config();
 
-// Connecting to the database before starting the server
-const startServer = async () => {
-  try {
-    // Connect to the database
-    await connectDB();
+import mongoose from "mongoose";
+import app from "./app.js";
+import connectDB from "./config/db.js";
+import config from "./config/index.js";
+import logger from "./utils/logger.js";
 
-    // Starting the server after the database connection is established
-    const server = app.listen(process.env.PORT, () => {
-      console.log(`Server is running on port: ${process.env.PORT}`);
-    });
+process.on("uncaughtException", (err) => {
+  logger.error("Uncaught Exception:", err.message);
+  logger.info("Shutting down due to uncaught exception...");
+  process.exit(1);
+});
 
-    // Handling unhandled promise rejection
-    process.on("unhandledRejection", (err) => {
-      console.error(`Unhandled Rejection: ${err.message}`);
-      console.log("Shutting down server due to Unhandled Rejection...");
-      server.close(() => {
+const SHUTDOWN_TIMEOUT_MS = 10000;
+
+const shutdown = (server, signal) => {
+  logger.info(`${signal} received. Shutting down gracefully.`);
+  const forceExit = () => {
+    logger.warn("Forcing exit after timeout.");
+    process.exit(1);
+  };
+  const t = setTimeout(forceExit, SHUTDOWN_TIMEOUT_MS);
+
+  server.close(() => {
+    mongoose.connection
+      ?.close()
+      .then(() => {
+        clearTimeout(t);
+        logger.info("Closed DB connection.");
+        process.exit(0);
+      })
+      .catch((err) => {
+        clearTimeout(t);
+        logger.error("Error closing DB:", err?.message);
         process.exit(1);
       });
+  });
+};
+
+const startServer = async () => {
+  try {
+    await connectDB();
+
+    const server = app.listen(config.port, () => {
+      logger.info(`Server running on port ${config.port}`);
     });
+
+    process.on("unhandledRejection", (err) => {
+      logger.error("Unhandled Rejection:", err?.message);
+      logger.info("Shutting down due to unhandled rejection...");
+      server.close(() => process.exit(1));
+    });
+
+    process.on("SIGTERM", () => shutdown(server, "SIGTERM"));
+    process.on("SIGINT", () => shutdown(server, "SIGINT"));
   } catch (error) {
-    console.error("Error starting the server:", error);
-    process.exit(1); // Exit process with failure code
+    logger.error("Error starting server:", error?.message);
+    process.exit(1);
   }
 };
 

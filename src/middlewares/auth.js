@@ -2,30 +2,41 @@ import User from "../models/userModel.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import catchAsyncErrors from "./catchAsyncErrors.js";
 import jwt from "jsonwebtoken";
+import config from "../config/index.js";
+import { COOKIE_NAMES, HTTP_STATUS } from "../config/constants.js";
 
 export const isAuthenticatedUser = catchAsyncErrors(async (req, res, next) => {
-  const { authToken } = req.cookies;
+  const authToken = req.cookies[COOKIE_NAMES.AUTH_TOKEN];
   if (!authToken) {
-    return next(new ErrorHandler("Please login to access this resource.", 401));
+    return next(
+      new ErrorHandler(
+        "Please sign in to access this resource.",
+        HTTP_STATUS.UNAUTHORIZED
+      )
+    );
   }
 
-  const decodedData = jwt.verify(authToken, process.env.JWT_SECRET);
-  const userFound = await User.findById(decodedData.id);
-  if (!userFound) {
-    return next(new ErrorHandler("Please login to access this resource.", 401));
+  const decoded = jwt.verify(authToken, config.jwt.secret);
+  const user = await User.findById(decoded.id);
+  if (!user) {
+    return next(
+      new ErrorHandler(
+        "Please sign in to access this resource.",
+        HTTP_STATUS.UNAUTHORIZED
+      )
+    );
   }
-  req.user = userFound;
-
+  req.user = user;
   next();
 });
 
 export const authorizeRole = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    if (!req.user || !roles.includes(req.user.role)) {
       return next(
         new ErrorHandler(
-          `Role ${req?.user?.role} is not allowed to access this resource.`,
-          403
+          "You do not have permission to access this resource.",
+          HTTP_STATUS.FORBIDDEN
         )
       );
     }

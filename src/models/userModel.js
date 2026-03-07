@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import config from "../config/index.js";
+import { USER_ROLES } from "../config/constants.js";
+
 const userSchema = new mongoose.Schema(
   {
     firstName: { type: String, required: true, trim: true },
@@ -30,7 +33,11 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
     isActive: { type: Boolean, default: true },
-    role: { type: String, default: "user" },
+    role: {
+      type: String,
+      enum: Object.values(USER_ROLES),
+      default: USER_ROLES.USER,
+    },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
   },
@@ -66,8 +73,8 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 userSchema.methods.getJWTToken = function () {
-  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE,
+  return jwt.sign({ id: this._id }, config.jwt.secret, {
+    expiresIn: config.jwt.expire,
   });
 };
 
@@ -82,6 +89,7 @@ userSchema.methods.setResetPasswordToken = function () {
 };
 userSchema.index({ email: 1 });
 userSchema.index({ username: 1 });
+userSchema.index({ resetPasswordToken: 1, resetPasswordExpire: 1 });
 
 const User = mongoose.model("User", userSchema);
 

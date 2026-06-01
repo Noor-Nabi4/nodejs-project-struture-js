@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { HTTP_STATUS } from "../config/constants.js";
 import type { ValidationFieldError } from "../types/errors.types.js";
+import type { PaginationMeta } from "../types/pagination.types.js";
 
 /**
  * Send a standardized success response.
@@ -18,6 +19,21 @@ export const success = <TData>(
   if (data != null) payload.data = data;
   return res.status(statusCode).json(payload);
 };
+
+/**
+ * Unified list response with dual pagination metadata (page or cursor).
+ */
+export const paginatedSuccess = <TItem>(
+  res: Response,
+  data: TItem[],
+  pagination: PaginationMeta,
+  statusCode: number = HTTP_STATUS.OK
+): Response =>
+  res.status(statusCode).json({
+    success: true,
+    data,
+    pagination,
+  });
 
 /**
  * Send a standardized error response (used by error middleware; kept for programmatic use).

@@ -13,44 +13,28 @@ import config from "../config/index.js";
 import { HTTP_STATUS, COOKIE_NAMES } from "../config/constants.js";
 import type { AuthRequest } from "../types/auth.types.js";
 import type { TypedRequestBody } from "../types/request.types.js";
-import type { CreateUserPayload } from "../types/user.types.js";
-
-interface SigninBody {
-  email: string;
-  password: string;
-}
-
-interface ForgotPasswordBody {
-  email: string;
-}
-
-interface ResetPasswordBody {
-  password: string;
-  confirmPassword: string;
-}
-
-interface ResetPasswordParams {
-  token: string;
-}
-
-interface ChangePasswordBody {
-  oldPassword: string;
-  password: string;
-}
+import type {
+  SignupInput,
+  SigninInput,
+  ForgotPasswordInput,
+  ResetPasswordBodyInput,
+  ResetPasswordParamsInput,
+  ChangePasswordInput,
+} from "../validations/auth.validation.js";
 
 export const me = catchAsyncErrors<AuthRequest>(async (req, res) => {
   return success(res, HTTP_STATUS.OK, "Success", req.user);
 });
 
 export const createUser = catchAsyncErrors(
-  async (req: TypedRequestBody<CreateUserPayload>, res: Response) => {
+  async (req: TypedRequestBody<SignupInput>, res: Response) => {
     const user = await authService.createUser(req.body);
     return success(res, HTTP_STATUS.CREATED, "User created successfully", user);
   }
 );
 
 export const signin = catchAsyncErrors(
-  async (req: TypedRequestBody<SigninBody>, res: Response) => {
+  async (req: TypedRequestBody<SigninInput>, res: Response) => {
     const { email, password } = req.body;
     const user = await authService.validateCredentials(email, password);
     sendToken(user, HTTP_STATUS.OK, res);
@@ -68,7 +52,7 @@ export const signout = catchAsyncErrors(async (_req, res: Response) => {
 });
 
 export const forgotPassword = catchAsyncErrors(
-  async (req: TypedRequestBody<ForgotPasswordBody>, res: Response) => {
+  async (req: TypedRequestBody<ForgotPasswordInput>, res: Response) => {
     const user = await authService.findUserByEmail(req.body.email);
     if (!user) {
       return success(
@@ -101,8 +85,8 @@ export const forgotPassword = catchAsyncErrors(
 
 export const resetPassword = catchAsyncErrors(
   async (
-    req: TypedRequestBody<ResetPasswordBody> & {
-      params: ResetPasswordParams;
+    req: TypedRequestBody<ResetPasswordBodyInput> & {
+      params: ResetPasswordParamsInput;
     },
     res: Response,
     next: NextFunction
@@ -123,9 +107,9 @@ export const resetPassword = catchAsyncErrors(
 );
 
 export const changePassword = catchAsyncErrors<
-  AuthRequest & TypedRequestBody<ChangePasswordBody>
+  AuthRequest & TypedRequestBody<ChangePasswordInput>
 >(async (req, res) => {
-    const { oldPassword, password } = req.body;
-    await authService.changePasswordForUser(req.user.id, oldPassword, password);
-    return success(res, HTTP_STATUS.OK, "Password changed successfully");
+  const { oldPassword, password } = req.body;
+  await authService.changePasswordForUser(req.user.id, oldPassword, password);
+  return success(res, HTTP_STATUS.OK, "Password changed successfully");
 });

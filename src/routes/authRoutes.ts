@@ -9,33 +9,37 @@ import {
   changePassword,
 } from "../controllers/authController.js";
 import { isAuthenticatedUser } from "../middlewares/auth.js";
-import { validate } from "../middlewares/validate.js";
+import { validateRequest } from "../middlewares/validateRequest.js";
 import {
   signupSchema,
   signinSchema,
   forgotPasswordSchema,
-  resetPasswordSchemas,
+  resetPasswordSchema,
   changePasswordSchema,
-} from "../validators/authValidators.js";
+} from "../validations/auth.validation.js";
 
 const router = express.Router();
 
 router.get("/me", isAuthenticatedUser, me);
 
-router.post("/signup", validate(signupSchema), createUser);
-router.post("/signin", validate(signinSchema), signin);
+router.post("/signup", validateRequest(signupSchema), createUser);
+router.post("/signin", validateRequest(signinSchema), signin);
 router.get("/signout", signout);
 
-router.post("/password/forgot", validate(forgotPasswordSchema), forgotPassword);
+router.post(
+  "/password/forgot",
+  validateRequest(forgotPasswordSchema),
+  forgotPassword
+);
 router.put(
   "/password/reset/:token",
-  validate(resetPasswordSchemas),
+  validateRequest(resetPasswordSchema),
   resetPassword
 );
 router.patch(
   "/password/change",
   isAuthenticatedUser,
-  validate(changePasswordSchema),
+  validateRequest(changePasswordSchema),
   changePassword
 );
 

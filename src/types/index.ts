@@ -11,3 +11,11 @@ export type {
   TypedRequestQuery,
   TypedRequestParams,
 } from "./request.types.js";
+export type {
+  PaginationMode,
+  PaginationMeta,
+  PagePaginationMeta,
+  CursorPaginationMeta,
+  PaginatedResult,
+  PaginationBuildResult,
+} from "./pagination.types.js";

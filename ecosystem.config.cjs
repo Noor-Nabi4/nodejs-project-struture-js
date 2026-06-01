@@ -6,7 +6,7 @@ module.exports = {
   apps: [
     {
       name: "inventory-api",
-      script: "src/index.js",
+      script: "dist/index.js",
       interpreter: "node",
       instances: 1,
       exec_mode: "fork",

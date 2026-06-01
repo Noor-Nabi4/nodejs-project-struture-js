@@ -24,13 +24,7 @@ export interface IUserMethods {
 
 export type IUserDocument = HydratedDocument<IUser, IUserMethods>;
 
-export type CreateUserPayload = Pick<
-  IUser,
-  "firstName" | "lastName" | "username" | "email" | "phoneNumber" | "password"
->;
-
-export type UpdateProfilePayload = Partial<
-  Pick<IUser, "firstName" | "lastName" | "username" | "email" | "phoneNumber">
->;
+export type { SignupInput as CreateUserPayload } from "../validations/auth.validation.js";
+export type { UpdateProfileInput as UpdateProfilePayload } from "../validations/user.validation.js";
 
 export type UserId = Types.ObjectId | string;

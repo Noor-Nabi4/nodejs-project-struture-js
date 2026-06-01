@@ -21,3 +21,10 @@ export const HTTP_STATUS = {
   CONFLICT: 409,
   INTERNAL_SERVER_ERROR: 500,
 } as const;
+
+/** Dual pagination defaults (page + cursor on unified list endpoints). */
+export const PAGINATION = {
+  DEFAULT_LIMIT: 20,
+  MAX_LIMIT: 100,
+  DEFAULT_PAGE: 1,
+} as const;

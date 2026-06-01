@@ -16,13 +16,23 @@ interface AppError extends Error {
   path?: string;
 }
 
+const normalizeError = (err: unknown): AppError => {
+  if (err instanceof ErrorHandler) {
+    return err;
+  }
+  if (err instanceof Error) {
+    return err as AppError;
+  }
+  return new Error(String(err)) as AppError;
+};
+
 const defaultError = (
-  err: AppError,
+  err: unknown,
   _req: Request,
   res: Response,
   _next: NextFunction
 ): Response | void => {
-  let error: AppError = { ...err };
+  let error: AppError = normalizeError(err);
   error.statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
   error.message = error.message || "Internal Server Error";
 
@@ -40,7 +50,10 @@ const defaultError = (
     error = new ErrorHandler(`${field} already exists.`, HTTP_STATUS.CONFLICT);
   }
 
-  if (error.name === "JSONWebTokenError") {
+  if (
+    error.name === "JSONWebTokenError" ||
+    error.name === "JsonWebTokenError"
+  ) {
     error = new ErrorHandler(
       "Invalid token. Please sign in again.",
       HTTP_STATUS.UNAUTHORIZED
@@ -85,7 +98,9 @@ const defaultError = (
     errors?: ErrorHandler["errors"] | Record<string, string>;
   } = { success: false, message: error.message };
   if (error.errors) body.errors = error.errors;
-  return res.status(error.statusCode ?? HTTP_STATUS.INTERNAL_SERVER_ERROR).json(body);
+  return res
+    .status(error.statusCode ?? HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    .json(body);
 };
 
 export default defaultError;

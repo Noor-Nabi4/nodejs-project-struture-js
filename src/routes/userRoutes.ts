@@ -1,14 +1,18 @@
 import express from "express";
 import { isAuthenticatedUser } from "../middlewares/auth.js";
 import { getProfile, updateProfile } from "../controllers/userController.js";
-import { validate } from "../middlewares/validate.js";
-import { updateProfileSchema } from "../validators/userValidators.js";
+import { validateRequest } from "../middlewares/validateRequest.js";
+import { updateProfileSchema } from "../validations/user.validation.js";
 
 const router = express.Router();
 
 router
   .route("/profile")
   .get(isAuthenticatedUser, getProfile)
-  .put(isAuthenticatedUser, validate(updateProfileSchema), updateProfile);
+  .put(
+    isAuthenticatedUser,
+    validateRequest(updateProfileSchema),
+    updateProfile
+  );
 
 export default router;

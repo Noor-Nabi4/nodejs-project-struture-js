@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
 import type { Response } from "express";
-import { success, error } from "../../utils/response.js";
+import { success, error } from "../../../src/utils/response.js";
 
 type MockResponse = Pick<Response, "status" | "json"> & {
   status: jest.MockedFunction<Response["status"]>;

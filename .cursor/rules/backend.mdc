@@ -1,0 +1,125 @@
+---
+description: MERN unified API, filter-driven products, RBAC, and service-layer conventions
+globs: backend/**/*
+alwaysApply: false
+---
+
+# Backend Architecture (Nikonikkos)
+
+Unified API + filter-based queries + RBAC. **One list endpoint per resource; filters via query params only.**
+
+## 1. Strict API design
+
+Do **not** add fragmented routes such as `/api/products/category/:id`, `/featured`, `/search`, or `/brand/:id`.
+
+Use a single list endpoint:
+
+```
+GET /api/products
+```
+
+All filtering via query params.
+
+## 2. Filter query params
+
+Support: `category`, `subCategory`, `brand`, `minPrice`, `maxPrice`, `search`, `tags`, `isFeatured`, `isActive`, `sort`, `page`, `limit`, `stockStatus`.
+
+Example:
+
+```
+GET /api/products?category=paints&minPrice=1000&maxPrice=5000&sort=price_asc&page=1&limit=20
+```
+
+**Search** matches `title`, `description`, `tags`, `brand` (MongoDB text index or regex fallback).
+
+## 3. Controllers (thin)
+
+List handlers delegate to services; **no raw MongoDB query logic in controllers**.
+
+Use a shared query builder from `req.query` (e.g. `buildQuery(req.query)` or service `buildFilter()`).
+
+## 4. Services (business logic)
+
+All DB and filter logic lives in services (e.g. `services/product.service.js`):
+
+- `buildFilter()` / `buildProductFilter(query)`
+- `buildSort()`
+- `buildPagination()`
+- `executeQuery()`
+
+Do not put DB logic in controllers or mix filters in routes.
+
+## 5. RBAC
+
+Roles: `ADMIN`, `MANAGER`, `STAFF`, `CUSTOMER`.
+
+| Role | Access |
+|------|--------|
+| ADMIN | Full access |
+| MANAGER | Products CRUD, orders |
+| STAFF | Update orders, inventory only |
+| CUSTOMER | Read products, place orders |
+
+Protect routes with existing auth + role middleware:
+
+```js
+router.post(
+  "/",
+  isAuthenticatedUser,
+  authorizeRole("ADMIN", "MANAGER"),
+  createProduct
+);
+```
+
+Extend `USER_ROLES` in `config/constants.js` when adding roles; do not bypass RBAC.
+
+## 6. Product model
+
+Required fields: `category` (ObjectId), `subCategory` (ObjectId, optional), `brand` (string), `attributes` (flexible JSON), `pricing` object, `stock` object, `tags[]`, `isFeatured`, `isActive`. No hardcoded filter-only fields.
+
+## 7. Response format
+
+List endpoints return unified shape (extend `utils/response.js` if needed):
+
+```json
+{
+  "success": true,
+  "message": "optional",
+  "data": {},
+  "meta": { "page": 1, "limit": 20, "total": 200, "pages": 10 }
+}
+```
+
+## 8. Pagination
+
+`page` (default `1`), `limit` (default `20`) on all list endpoints.
+
+## 9. Sorting
+
+`sort=price_asc|price_desc|newest|oldest` → `{ price: 1 }`, `{ price: -1 }`, `{ createdAt: -1 }`, `{ createdAt: 1 }`.
+
+## 10. Indexes
+
+Product: text on `title`; indexes on `category`, `brand`, `price`, `isFeatured`.
+
+## 11. Filter builder (mandatory)
+
+Centralize in `utils/` (e.g. `buildProductFilter(query)`): category, price range, search, tags, brand, stock. **No duplicate filter logic** across controllers/services.
+
+## 12. File layout
+
+Match repo: `backend/src/controllers/`, `services/`, `models/`, `routes/`, `middlewares/`, `utils/`.
+
+Pattern: Controller → thin; Service → logic; Model → schema; Routes → mapping only.
+
+## 13. Cart & orders
+
+- One cart per user (no guest cart unless explicitly added).
+- Orders snapshot product data at purchase time.
+
+## Stop and refactor if
+
+- New list endpoint instead of query filters
+- DB logic in controllers
+- RBAC bypassed
+- Duplicate product services/controllers or filter code
